@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<META http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      -->
+<title>softconstraints</title>
+<meta name="generator" content="MATLAB 23.2">
+<link rel="schema.DC" href="http://purl.org/dc/elements/1.1/">
+<meta name="DC.date" content="2024-04-24">
+<meta name="DC.source" content="softconstraints.m">
+<style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style>
+</head>
+<body>
+<div class="content">
+<pre class="codeinput">
+<span class="keyword">function</span> softconstraints()
+<span class="comment">% On/off control of a tank with softened constraints.</span>
+mpc = import_mpctools();
+
+<span class="comment">% Choose parameters.</span>
+udiscrete = false(); <span class="comment">% Must be scalar True or False.</span>
+hmax = 2;
+hsp = 1;
+hdb = 0.25; <span class="comment">% Deadband on tank height.</span>
+qmax = 1;
+
+<span class="comment">% Define model.</span>
+A = 0.85;
+B = 0.5;
+
+Nx = size(A, 2);
+Nu = size(B, 2);
+Ns = 2*Nx; <span class="comment">% One for each bound.</span>
+Nt = 25;
+
+N = struct(<span class="string">'x'</span>, Nx, <span class="string">'u'</span>, Nu, <span class="string">'t'</span>, Nt, <span class="string">'s'</span>, Ns);
+
+<span class="comment">% Casadi functions for model, stage cost, and constraints.</span>
+f = mpc.getCasadiFunc(@(x, u) A*x + B*u, [Nx, Nu], {<span class="string">'x'</span>, <span class="string">'u'</span>}, {<span class="string">'f'</span>});
+l = mpc.getCasadiFunc(@(s, absDu) 1000*sum(s) + sum(absDu), [Ns, Nu], <span class="keyword">...</span>
+                      {<span class="string">'s'</span>, <span class="string">'absDu'</span>}, {<span class="string">'l'</span>});
+e = mpc.getCasadiFunc(@(x) [x - (hsp + hdb); (hsp - hdb) - x], <span class="keyword">...</span>
+                      [Nx], {<span class="string">'x'</span>}, {<span class="string">'e'</span>});
+ef = e; <span class="comment">% Use same constraint for terminal state.</span>
+
+<span class="comment">% Specify bounds.</span>
+lb = struct();
+lb.u = zeros(Nu, Nt);
+lb.x = zeros(Nx, Nt + 1);
+
+ub = struct();
+ub.u = qmax*ones(Nu, Nt);
+ub.x = hmax*ones(Nx, Nt + 1);
+
+<span class="comment">% Build controller and solve.</span>
+<span class="keyword">if</span> udiscrete
+    solver = <span class="string">'gurobi'</span>;
+<span class="keyword">else</span>
+    solver = <span class="string">'ipopt'</span>;
+<span class="keyword">end</span>
+x0 = zeros(Nx, 1); <span class="comment">% Start with empty tank.</span>
+controller = mpc.nmpc(<span class="string">'f'</span>, f, <span class="string">'l'</span>, l, <span class="string">'e'</span>, e, <span class="string">'ef'</span>, ef, <span class="string">'N'</span>, N, <span class="string">'lb'</span>, lb, <span class="keyword">...</span>
+                      <span class="string">'ub'</span>, ub, <span class="string">'uprev'</span>, zeros(Nu, 1), <span class="string">'isQP'</span>, true(), <span class="keyword">...</span>
+                      <span class="string">'x0'</span>, x0, <span class="string">'udiscrete'</span>, udiscrete, <span class="string">'solver'</span>, solver);
+controller.solve()
+
+<span class="comment">% Make a plot.</span>
+figure();
+x = controller.var.x;
+u = controller.var.u;
+
+subplot(2, 1, 1);
+plot(0:Nt, x, <span class="string">'-ok'</span>, [0, Nt], (hsp + hdb)*[1, 1], <span class="string">':b'</span>, <span class="keyword">...</span>
+     [0, Nt], (hsp - hdb)*[1, 1], <span class="string">':b'</span>);
+ylabel(<span class="string">'h'</span>, <span class="string">'rotation'</span>, 0);
+legend(<span class="string">'h'</span>, <span class="string">'h_{db}'</span>, <span class="string">'Location'</span>, <span class="string">'SouthEast'</span>);
+
+subplot(2, 1, 2);
+hold(<span class="string">'on'</span>);
+stairs(0:Nt, [u, u(:,end)], <span class="string">'-k'</span>);
+plot([0, Nt], qmax*[1, 1], <span class="string">'--b'</span>, [0, Nt], 0*[1, 1], <span class="string">'--b'</span>);
+axis([0, Nt, -0.1, 0.1 + qmax]);
+xlabel(<span class="string">'Time'</span>);
+ylabel(<span class="string">'q'</span>, <span class="string">'rotation'</span>, 0);
+legend(<span class="string">'q'</span>, <span class="string">'q_{bounds}'</span>, <span class="string">'Location'</span>, <span class="string">'North'</span>);
+
+<span class="keyword">end</span><span class="comment">%function</span>
+</pre>
+<p class="footer">
+<br>
+<a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2023b</a>
+<br>
+</p>
+</div>
+<!--
+##### SOURCE BEGIN #####
+function softconstraints()
+% On/off control of a tank with softened constraints.
+mpc = import_mpctools();
+
+% Choose parameters.
+udiscrete = false(); % Must be scalar True or False.
+hmax = 2;
+hsp = 1;
+hdb = 0.25; % Deadband on tank height.
+qmax = 1;
+
+% Define model.
+A = 0.85;
+B = 0.5;
+
+Nx = size(A, 2);
+Nu = size(B, 2);
+Ns = 2*Nx; % One for each bound.
+Nt = 25;
+
+N = struct('x', Nx, 'u', Nu, 't', Nt, 's', Ns);
+
+% Casadi functions for model, stage cost, and constraints.
+f = mpc.getCasadiFunc(@(x, u) A*x + B*u, [Nx, Nu], {'x', 'u'}, {'f'});
+l = mpc.getCasadiFunc(@(s, absDu) 1000*sum(s) + sum(absDu), [Ns, Nu], ...
+                      {'s', 'absDu'}, {'l'});
+e = mpc.getCasadiFunc(@(x) [x - (hsp + hdb); (hsp - hdb) - x], ...
+                      [Nx], {'x'}, {'e'});
+ef = e; % Use same constraint for terminal state.
+
+% Specify bounds.
+lb = struct();
+lb.u = zeros(Nu, Nt);
+lb.x = zeros(Nx, Nt + 1);
+
+ub = struct();
+ub.u = qmax*ones(Nu, Nt);
+ub.x = hmax*ones(Nx, Nt + 1);
+
+% Build controller and solve.
+if udiscrete
+    solver = 'gurobi';
+else
+    solver = 'ipopt';
+end
+x0 = zeros(Nx, 1); % Start with empty tank.
+controller = mpc.nmpc('f', f, 'l', l, 'e', e, 'ef', ef, 'N', N, 'lb', lb, ...
+                      'ub', ub, 'uprev', zeros(Nu, 1), 'isQP', true(), ...
+                      'x0', x0, 'udiscrete', udiscrete, 'solver', solver);
+controller.solve()
+
+% Make a plot.
+figure();
+x = controller.var.x;
+u = controller.var.u;
+
+subplot(2, 1, 1);
+plot(0:Nt, x, '-ok', [0, Nt], (hsp + hdb)*[1, 1], ':b', ...
+     [0, Nt], (hsp - hdb)*[1, 1], ':b');
+ylabel('h', 'rotation', 0);
+legend('h', 'h_{db}', 'Location', 'SouthEast');
+
+subplot(2, 1, 2);
+hold('on');
+stairs(0:Nt, [u, u(:,end)], '-k');
+plot([0, Nt], qmax*[1, 1], 'REPLACE_WITH_DASH_DASHb', [0, Nt], 0*[1, 1], 'REPLACE_WITH_DASH_DASHb');
+axis([0, Nt, -0.1, 0.1 + qmax]);
+xlabel('Time');
+ylabel('q', 'rotation', 0);
+legend('q', 'q_{bounds}', 'Location', 'North');
+
+end%function
+
+##### SOURCE END #####
+-->
+</body>
+</html>
